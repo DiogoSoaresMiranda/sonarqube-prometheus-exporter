@@ -38,6 +38,9 @@
         <sonar.apiVersion>7.0</sonar.apiVersion>
         <jdk.min.version>1.8</jdk.min.version>
         <sonar.sources>src/main/java</sonar.sources>
+        <sonar.projectKey>Sonarqube-Prometheus-Exporter</sonar.projectKey>
+        <sonar.projectName>Sonarqube Prometheus Exporter</sonar.projectName>
+        <sonar.qualitygate.wait>true</sonar.qualitygate.wait>
     </properties>
 
     <dependencies>

@@ -32,13 +32,54 @@ public class PrometheusWebService implements WebService {
     private final Map<String, Gauge> gauges = new HashMap<>();
     private final Set<Metric<?>> enabledMetrics = new HashSet<>();
 
+    public String keyGeneric = "Global";
+
     static {
 
+
+        // Qualidade de código
         SUPPORTED_METRICS.add(CoreMetrics.BUGS);
         SUPPORTED_METRICS.add(CoreMetrics.VULNERABILITIES);
         SUPPORTED_METRICS.add(CoreMetrics.CODE_SMELLS);
+
+        // Testes
         SUPPORTED_METRICS.add(CoreMetrics.COVERAGE);
+        SUPPORTED_METRICS.add(CoreMetrics.LINE_COVERAGE);
+        SUPPORTED_METRICS.add(CoreMetrics.BRANCH_COVERAGE);
+        SUPPORTED_METRICS.add(CoreMetrics.TESTS);
+        SUPPORTED_METRICS.add(CoreMetrics.TEST_ERRORS);
+        SUPPORTED_METRICS.add(CoreMetrics.TEST_FAILURES);
+        SUPPORTED_METRICS.add(CoreMetrics.SKIPPED_TESTS);
+
+        // Duplicações
+        SUPPORTED_METRICS.add(CoreMetrics.DUPLICATED_LINES);
+        SUPPORTED_METRICS.add(CoreMetrics.DUPLICATED_BLOCKS);
+        SUPPORTED_METRICS.add(CoreMetrics.DUPLICATED_FILES);
+        SUPPORTED_METRICS.add(CoreMetrics.DUPLICATED_LINES_DENSITY);
+
+        // Complexidade
+        SUPPORTED_METRICS.add(CoreMetrics.COMPLEXITY);
+        SUPPORTED_METRICS.add(CoreMetrics.FUNCTION_COMPLEXITY);
+        SUPPORTED_METRICS.add(CoreMetrics.FILE_COMPLEXITY);
+        SUPPORTED_METRICS.add(CoreMetrics.CLASS_COMPLEXITY);
+        SUPPORTED_METRICS.add(CoreMetrics.COGNITIVE_COMPLEXITY);
+
+        // Dívida técnica
         SUPPORTED_METRICS.add(CoreMetrics.TECHNICAL_DEBT);
+        SUPPORTED_METRICS.add(CoreMetrics.NEW_TECHNICAL_DEBT);
+
+        // Tamanho do código
+        SUPPORTED_METRICS.add(CoreMetrics.LINES);
+        SUPPORTED_METRICS.add(CoreMetrics.NCLOC);
+        SUPPORTED_METRICS.add(CoreMetrics.STATEMENTS);
+        SUPPORTED_METRICS.add(CoreMetrics.FUNCTIONS);
+        SUPPORTED_METRICS.add(CoreMetrics.CLASSES);
+        SUPPORTED_METRICS.add(CoreMetrics.FILES);
+        SUPPORTED_METRICS.add(CoreMetrics.DIRECTORIES);
+
+        // Manutenibilidade
+        SUPPORTED_METRICS.add(CoreMetrics.SECURITY_RATING);
+        SUPPORTED_METRICS.add(CoreMetrics.RELIABILITY_RATING);
     }
 
     public PrometheusWebService(Configuration configuration) {
@@ -65,10 +106,21 @@ public class PrometheusWebService implements WebService {
 
                     WsClient wsClient = WsClientFactories.getLocal().newClient(request.localConnector());
 
+                    Measures.ComponentWsResponse wsResponseGlobal = getMeasuresGlobal(wsClient);
+
+                    wsResponseGlobal.getComponent().getMeasuresList().forEach(measure -> {
+                        if (this.gauges.containsKey(measure.getMetric())) {
+                            // Sem labels de projeto
+                            this.gauges.get(measure.getMetric())
+                                    .labels(keyGeneric, keyGeneric) // sem argumentos → global
+                                    .set(Double.valueOf(measure.getValue()));
+                        }
+                    });
+
                     List<Components.Component> projects = getProjects(wsClient);
                     projects.forEach(project -> {
 
-                        Measures.ComponentWsResponse wsResponse = getMeasures(wsClient, project);
+                        Measures.ComponentWsResponse wsResponse = getMeasuresByProject(wsClient, project);
 
                         wsResponse.getComponent().getMeasuresList().forEach(measure -> {
 
@@ -78,6 +130,8 @@ public class PrometheusWebService implements WebService {
                             }
                         });
                     });
+
+
                 }
 
                 OutputStream output = response.stream()
@@ -118,7 +172,17 @@ public class PrometheusWebService implements WebService {
             .register()));
     }
 
-    private Measures.ComponentWsResponse getMeasures(WsClient wsClient, Components.Component project) {
+    private Measures.ComponentWsResponse getMeasuresGlobal(WsClient wsClient) {
+
+        List<String> metricKeys = this.enabledMetrics.stream()
+                .map(Metric::getKey)
+                .collect(Collectors.toList());
+
+        return wsClient.measures().component(new ComponentRequest()
+                .setMetricKeys(metricKeys));
+    }
+
+    private Measures.ComponentWsResponse getMeasuresByProject(WsClient wsClient, Components.Component project) {
 
         List<String> metricKeys = this.enabledMetrics.stream()
             .map(Metric::getKey)
@@ -128,6 +192,7 @@ public class PrometheusWebService implements WebService {
             .setComponent(project.getKey())
             .setMetricKeys(metricKeys));
     }
+
 
     private List<Components.Component> getProjects(WsClient wsClient) {
 
